@@ -129,15 +129,4 @@ public class CreateStreamApiDemo {
         Stream<String> stream = lists.stream();
         stream.forEach(System.out::println);
     }
-
-    public static void test1() {
-        List<Person> peoples = List.of(new Person("张三", 33, "中国"),
-                new Person("AoLi", 35, "澳大利亚"),
-                new Person("Tony", 46, "美国"),
-                new Person("田七", 26, "中国"),
-                new Person("波多野结衣", 40, "日本"));
-
-        List<Person> collect = peoples.stream().filter(person -> person.getAge() > 30).toList();
-        System.out.println("collect = " + collect);
-    }
 }
