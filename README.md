@@ -507,3 +507,5 @@ public class MiddleOperationDemo {
 
 <b>原因是因为 `mapMultiToInt`的参数是 `BiConsumer<T, U>`, 而T,U都是参数，所以参数是2个; 而 `comparing`方法的参数是 `Function<T, R>`, 其中T是参数，R是返回值，所以它的参数是一个。</b>
 
+# 4. 终端操作
+![img_2.png](src%2Fmain%2Fresources%2Fimages%2Fimg_2.png)
