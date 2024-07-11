@@ -509,3 +509,232 @@ public class MiddleOperationDemo {
 
 # 4. 终端操作
 ![img_2.png](src%2Fmain%2Fresources%2Fimages%2Fimg_2.png)
+
+## 4.1 查找与匹配
+![img_4.png](img_4.png)
+这类属于`短路操作`，这个因为这些操作再找到符合条件的元素后会立即结束处理，返回结果，而不需要处理整个流
+有效短路了流的遍历，提高了处理效率，特别适用再快速筛选和数据验证的场景中。<br>
+
+* anyMatch(): 如果流中有任意一个元素符合条件，则返回true，否则返回false。
+* noneMatch(): 如果流中所有元素都不符合条件，则返回true，否则返回false。
+* allMatch(): 如果流中所有元素都符合条件，则返回true，否则返回false。
+* findFirst(): 返回流中第一个元素
+* findAny(): 符合流中任意一个元素
+
+```java
+public class TerminalOperationDemo {
+    
+    public static void main(String[] args) {
+        List<Person> peoples = List.of(new Person("张三", 16, "中国"),
+                new Person("AoLi", 35, "澳大利亚"),
+                new Person("Tony", 46, "美国"),
+                new Person("田七", 26, "中国"),
+                new Person("波多野结衣", 30, "日本"));
+
+        //如果任意一个元素满足条件，则返回true
+        boolean anyMatch = peoples.stream()
+                .anyMatch(person -> person.getAge() > 100);
+        System.out.println("anyMatch = " + anyMatch);
+
+        System.out.println("------------------------------------");
+
+        //如果流中所有元素都不符合条件的，就返回true
+        boolean noneMatch = peoples.stream()
+                .noneMatch(person -> person.getAge() > 30);
+        System.out.println("noneMatch = " + noneMatch);
+
+        System.out.println("------------------------------------");
+
+
+        //如果流中所有元素都符合条件的，就返回true
+        boolean allMatch = peoples.stream()
+                .allMatch(person -> person.getAge() > 10);
+        System.out.println("allMatch = " + allMatch);
+
+        System.out.println("------------------------------------");
+
+        //查找第一个元素
+        Optional<Person> first = peoples.stream().findFirst();
+        first.ifPresent(System.out::println);
+
+        System.out.println("------------------------------------");
+
+        //查找任意一个元素
+        Optional<Person> findAny = peoples.stream().findAny();
+        findAny.ifPresent(System.out::println);
+    }
+}
+```
+
+## 4.2 聚合操作
+![img_5.png](img_5.png)
+```java
+public class TerminalOperationDemo {
+    
+    public static void main(String[] args) {
+        List<Person> persons = List.of(
+                new Person("张三", 16, "中国"),
+                new Person("AoLi", 35, "澳大利亚"),
+                new Person("Tony", 46, "美国"),
+                new Person("田七", 26, "中国"),
+                new Person("波多野结衣", 30, "日本")
+        );
+
+        //计算流中元素的个数
+        long count = persons.stream().count();
+        System.out.println("count = " + count);
+
+        //统计流中元素年龄最大的一个
+        persons.stream()
+                .min(Comparator.comparingInt(Person::getAge))
+                //.max(Comparator.comparingInt(Person::getAge))
+                .ifPresent(System.out::println);
+
+
+        //求和，平均值等这些要作用在基本数据类型上
+        IntStream intStream = persons.stream().mapToInt(Person::getAge);
+        int sum = intStream.sum();
+        System.out.println("sum = " + sum);
+
+        //请平均值
+        IntStream intStream1 = persons.stream().mapToInt(Person::getAge);
+        intStream1.average().ifPresent(System.out::println);
+    }
+}
+```
+
+## 4.3 reduce 规约
+> 本质上`聚合操作`是`reduce规约操作`的一种特殊形式，聚合操作适用于快捷简单的统计任务，比如求和，平均值，最大最小值等等，而规约操作reduce则更为通用，
+它可以通过自定义的累加器函数对流中的所有元素进行迭代处理，以累计中最终的结果。可以实现任何类型的结果汇总，不仅限于数学上的聚合，而是任何形式的数据
+合并，比如拼接字符串，合并集合等等。
+
+```java
+public class TerminalOperationDemo {
+    
+    public static void main(String[] args) {
+        List<Person> persons = List.of(
+                new Person("张三", 16, "男", "中国"),
+                new Person("AoLi", 35, "女", "澳大利亚"),
+                new Person("Tony", 46, "男", "美国"),
+                new Person("田七", 26, "男", "中国"),
+                new Person("波多野结衣", 30, "女", "日本")
+        );
+
+
+        //用reduce来实现年龄的求和
+        int reduce = persons.stream()
+                .mapToInt(Person::getAge)
+                .reduce(0, (a, b) -> a + b);
+        System.out.println("reduce 指定初始值 = " + reduce);
+
+        //不指定初始值，它返回的是OptionalInt
+        OptionalInt optionalInt = persons.stream()
+                .mapToInt(Person::getAge)
+                .reduce((a, b) -> a + b);
+        optionalInt.ifPresent(System.out::println);
+
+
+        //用reduce来实现字符串的拼接，这个聚合操作就无法实现了, 这个在收集的时候用join会更方便
+        String reduceName = persons.stream()
+                .map(Person::getName)
+                //如果不指定初始值，它返回的是Optional
+                .reduce("", (a, b) -> a + b + ",");
+        System.out.println("reduceName = " + reduceName);
+    }
+}
+```
+
+我们看下用`reduce`求和方法的参数:
+![img_7.png](img_7.png)
+![img_8.png](img_8.png)
+正好对应着:
+```java
+// a + b 是返回值
+.reduce(0, (a, b) -> a + b);
+```
+<br>
+<br>
+
+再来看下用`reduce`拼接字符串的方法:
+![img_9.png](img_9.png)
+```java
+@FunctionalInterface
+public interface BinaryOperator<T> extends BiFunction<T,T,T> {
+   //........
+}
+
+@FunctionalInterface
+public interface BiFunction<T, U, R> {
+    
+    //2个参数，1个返回值
+    R apply(T t, U u);
+}
+```
+
+## 4.4 collect 收集
+> 调用collect可以将流中的元素收集起来放到新的List, Set, Map中等，还提供了分组，分区，字符串拼接以及各种统计功能。
+
+```java
+public class TerminalOperationDemo {
+
+    public static void main(String[] args) {
+        testCollect();
+    }
+
+    public static void testCollect() {
+        List<Person> persons = List.of(
+                new Person("张三", 16, "男", "中国"),
+                new Person("AoLi", 35, "女", "美国"),
+                new Person("Tony", 46, "男", "美国"),
+                new Person("田七", 26, "男", "中国"),
+                new Person("波多野结衣", 30, "女", "日本"),
+                new Person("波多野结衣", 30, "女", "日本2")
+        );
+
+        //转成Map, 姓名作为key, person作为value
+        //Map<String, Person> personMap = persons.stream().collect(Collectors.toMap(Person::getName, person -> person));
+        //personMap.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+
+        //如果key重复了会报错，所以用第三个参数指定key规则
+        Map<String, String> personCountryMap = persons.stream()
+                .collect(Collectors.toMap(
+                        Person::getName,
+                        Person::getCountry,
+                        (k1, k2) -> k2));
+        personCountryMap.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+
+        System.out.println("-------------------------------------------------");
+
+        //分组
+        Map<String, List<Person>> collect = persons.stream().collect(Collectors.groupingBy(Person::getCountry));
+        collect.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+
+        System.out.println("-------------------------------------------------");
+
+        //分区,年龄大于30的分一个区，小于等于30的分一个区
+        Map<Boolean, List<Person>> partitioningBy = persons.stream().collect(Collectors.partitioningBy(person -> person.getAge() > 30));
+        partitioningBy.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+
+        System.out.println("-------------------------------------------------");
+
+        //字符串的拼接,要比reduce好用
+        String collect1 = persons.stream()
+                .map(Person::getName)
+                //默认是逗号
+                .collect(Collectors.joining("#"));
+        System.out.println("collect1 = " + collect1);
+
+        System.out.println("-------------------------------------------------");
+
+        //按照年龄进行统计
+        IntSummaryStatistics ageSummary = persons.stream().collect(Collectors.summarizingInt(Person::getAge));
+        System.out.println("年龄的平均值 = " + ageSummary.getAverage());
+        System.out.println("年龄的最大值 = " + ageSummary.getMax());
+        System.out.println("年龄的最小值 = " + ageSummary.getMin());
+
+    }
+}
+```
+
+
+## 4.5 自定义collector来模拟收集功能
