@@ -3,6 +3,7 @@ package com.qiuguan.stream.api.demo.create;
 import com.qiuguan.stream.api.demo.bean.Person;
 
 import java.util.*;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -14,7 +15,66 @@ import java.util.stream.Stream;
 public class TerminalOperationDemo {
 
     public static void main(String[] args) {
-        testCollect();
+        testCustomCollect();
+    }
+
+
+    public static void testCustomCollect2() {
+        List<Person> persons = List.of(
+                new Person("张三", 16, "男", "中国"),
+                new Person("AoLi", 35, "女", "美国"),
+                new Person("Tony", 46, "男", "美国"),
+                new Person("田七", 26, "男", "中国"),
+                new Person("波多野结衣", 30, "女", "日本"),
+                new Person("波多野结衣", 30, "女", "日本2")
+        );
+
+        Map<String, String> map = new HashMap<>();
+        map.computeIfAbsent()
+       persons.stream().collect(Collector.of(
+               HashMap::new,
+               (map, person) -> {
+                   map.computeIfAbsent(person.getCountry(), () -> new ArrayList<>().add(person));
+               }
+       ))
+    }
+
+
+    public static void testCustomCollect() {
+        List<Person> persons = List.of(
+                new Person("张三", 16, "男", "中国"),
+                new Person("AoLi", 35, "女", "美国"),
+                new Person("Tony", 46, "男","美国"),
+                new Person("田七", 26, "男","中国"),
+                new Person("波多野结衣", 30, "女","日本"),
+                new Person("波多野结衣", 30, "女","日本2")
+        );
+
+
+        List<Person> collect = persons.stream()
+               // .parallel()
+                .collect(Collector.of(
+                () -> {
+                    String name = Thread.currentThread().getName();
+                    System.out.println("供应器执行[ "  + name  +"]>>>>>>>>>>>>>>>");
+                    return new ArrayList<>();
+                },
+                (list, person) -> {
+                    String name = Thread.currentThread().getName();
+                    System.out.println("累加器执行[ " +  name +"] >>>>>>>>>>>>>>> " + list);
+                    list.add(person);
+                },
+                (left, right) -> {
+                    String name = Thread.currentThread().getName();
+                    System.out.println("组合器执行[" + name  +"] >>>>>>>>>>>>>>>> " + left);
+                    left.addAll(right);
+                    return left;
+                },
+                Collector.Characteristics.IDENTITY_FINISH
+        ));
+
+        System.out.println(">>>>>>>> collect = " + collect);
+
     }
 
     public static void testCollect() {

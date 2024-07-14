@@ -738,3 +738,174 @@ public class TerminalOperationDemo {
 
 
 ## 4.5 自定义collector来模拟收集功能
+为了更好的理解Collector的收集过程和以上这些方法的实现机制，从而掌握并实现更为复杂的收集策略。通过看Collector源码结构可以知道：
+```java
+public interface Collector<T, A, R> {
+    /**
+     * 供应器：
+     * 创建一个保存收集结果的容器
+     */
+    Supplier<A> supplier();
+
+    /**
+     * 累加器：
+     * 将结果添加到上面的容器中
+     */
+    BiConsumer<A, T> accumulator();
+
+    /**
+     * 合并器：
+     * 用于在并行流中，将不同线程中的供应器提供的数据收集容器的结果给合并起来，如果是串行流就无需使用它了，定义了也不会执行。
+     */
+    BinaryOperator<A> combiner();
+
+    /**
+     * 完成器：
+     * 可以对结果进一步处理，比如从类型A映射成类型B
+     * result
+     */
+    Function<A, R> finisher();
+
+    /**
+     * Returns a {@code Set} of {@code Collector.Characteristics} indicating
+     * the characteristics of this Collector.  This set should be immutable.
+     *
+     * @return an immutable set of collector characteristics
+     */
+    Set<Characteristics> characteristics();
+
+    /**
+     *
+     * @param supplier: 创建一个保存收集结果的容器
+     * @param accumulator: 累加器，两个参数，第一个参数(R)是容器，第二个参数是元素(T)
+     * @param combiner 组合器：接收2个参数，返回值是R                  
+     *                   
+     */
+    public static<T, R> Collector<T, R, R> of(Supplier<R> supplier,
+                                              BiConsumer<R, T> accumulator,
+                                              BinaryOperator<R> combiner,
+                                              Characteristics... characteristics) {
+        Objects.requireNonNull(supplier);
+        Objects.requireNonNull(accumulator);
+        Objects.requireNonNull(combiner);
+        Objects.requireNonNull(characteristics);
+        Set<Characteristics> cs = (characteristics.length == 0)
+                                  ? Collectors.CH_ID
+                                  : Collections.unmodifiableSet(EnumSet.of(Collector.Characteristics.IDENTITY_FINISH,
+                                                                           characteristics));
+        return new Collectors.CollectorImpl<>(supplier, accumulator, combiner, cs);
+    }
+
+    /**
+     * Returns a new {@code Collector} described by the given {@code supplier},
+     * {@code accumulator}, {@code combiner}, and {@code finisher} functions.
+     *
+     * @param supplier The supplier function for the new collector
+     * @param accumulator The accumulator function for the new collector
+     * @param combiner The combiner function for the new collector
+     * @param finisher The finisher function for the new collector
+     * @param characteristics The collector characteristics for the new
+     *                        collector
+     * @param <T> The type of input elements for the new collector
+     * @param <A> The intermediate accumulation type of the new collector
+     * @param <R> The final result type of the new collector
+     * @throws NullPointerException if any argument is null
+     * @return the new {@code Collector}
+     */
+    public static<T, A, R> Collector<T, A, R> of(Supplier<A> supplier,
+                                                 BiConsumer<A, T> accumulator,
+                                                 BinaryOperator<A> combiner,
+                                                 Function<A, R> finisher,
+                                                 Characteristics... characteristics) {
+        Objects.requireNonNull(supplier);
+        Objects.requireNonNull(accumulator);
+        Objects.requireNonNull(combiner);
+        Objects.requireNonNull(finisher);
+        Objects.requireNonNull(characteristics);
+        Set<Characteristics> cs = Collectors.CH_NOID;
+        if (characteristics.length > 0) {
+            cs = EnumSet.noneOf(Characteristics.class);
+            Collections.addAll(cs, characteristics);
+            cs = Collections.unmodifiableSet(cs);
+        }
+        return new Collectors.CollectorImpl<>(supplier, accumulator, combiner, finisher, cs);
+    }
+
+    /**
+     * Characteristics indicating properties of a {@code Collector}, which can
+     * be used to optimize reduction implementations.
+     */
+    enum Characteristics {
+        /**
+         * Indicates that this collector is <em>concurrent</em>, meaning that
+         * the result container can support the accumulator function being
+         * called concurrently with the same result container from multiple
+         * threads.
+         *
+         * <p>If a {@code CONCURRENT} collector is not also {@code UNORDERED},
+         * then it should only be evaluated concurrently if applied to an
+         * unordered data source.
+         */
+        CONCURRENT,
+
+        /**
+         * Indicates that the collection operation does not commit to preserving
+         * the encounter order of input elements.  (This might be true if the
+         * result container has no intrinsic order, such as a {@link Set}.)
+         */
+        UNORDERED,
+
+        /**
+         * 表明累加器的结果可以直接作为最终的结果输出。无需通过额外的完成器Finisher进一步处理。
+         */
+        IDENTITY_FINISH
+    }
+}
+```
+
+1. 我们自定义收集器来实现将数据收集到新的集合中。
+```java
+public class TerminalOperationDemo {
+    
+    public static void main(String[] args) {
+        List<Person> persons = List.of(
+                new Person("张三", 16, "男", "中国"),
+                new Person("AoLi", 35, "女", "美国"),
+                new Person("Tony", 46, "男", "美国"),
+                new Person("田七", 26, "男", "中国"),
+                new Person("波多野结衣", 30, "女", "日本"),
+                new Person("波多野结衣", 30, "女", "日本2")
+        );
+
+
+        List<Person> collect = persons.stream()
+                // .parallel()
+                .collect(Collector.of(
+                        () -> {
+                            String name = Thread.currentThread().getName();
+                            System.out.println("供应器执行[ " + name + "]>>>>>>>>>>>>>>>");
+                            return new ArrayList<>();
+                        },
+                        (list, person) -> {
+                            String name = Thread.currentThread().getName();
+                            System.out.println("累加器执行[ " + name + "] >>>>>>>>>>>>>>> " + list);
+                            list.add(person);
+                        },
+                        (left, right) -> {
+                            String name = Thread.currentThread().getName();
+                            System.out.println("组合器执行[" + name + "] >>>>>>>>>>>>>>>> " + left);
+                            left.addAll(right);
+                            return left;
+                        },
+                        Collector.Characteristics.IDENTITY_FINISH
+                ));
+
+        System.out.println(">>>>>>>> collect = " + collect);
+
+    }
+} 
+```
+> 可以看到，当是串行流时，组合器是不会执行的，当是并行流时，组合器才会执行。
+
+
+2. 自定义事情
