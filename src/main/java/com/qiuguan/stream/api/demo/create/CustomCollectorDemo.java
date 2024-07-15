@@ -14,7 +14,7 @@ public class CustomCollectorDemo {
 
     public static void main(String[] args) {
 
-        testCollect2();
+        testCustomCollect();
 
     }
 
@@ -73,11 +73,11 @@ public class CustomCollectorDemo {
 
 
         List<Person> collect = persons.stream()
-                .parallel()
+                //.parallel()
                 .collect(Collector.of(
                         () -> {
                             String name = Thread.currentThread().getName();
-                            System.out.println("供应器执行[ "  + name  +"]>>>>>>>>>>>>>>>");
+                            System.out.println("供应器执行[ "  + name  +"]>>>>>>>>>>>>>>>\n");
                             return new ArrayList<>();
                         },
                         (list, person) -> {
@@ -87,7 +87,7 @@ public class CustomCollectorDemo {
                         },
                         (left, right) -> {
                             String name = Thread.currentThread().getName();
-                            System.out.println("组合器执行[" + name  +"] >>>>>>>>>>>>>>>> " + left);
+                            System.out.println("\n组合器执行[" + name  +"] >>>>>>>>>>>>>>>> " + left);
                             left.addAll(right);
                             return left;
                         },

@@ -873,29 +873,29 @@ public class TerminalOperationDemo {
         List<Person> persons = List.of(
                 new Person("张三", 16, "男", "中国"),
                 new Person("AoLi", 35, "女", "美国"),
-                new Person("Tony", 46, "男", "美国"),
-                new Person("田七", 26, "男", "中国"),
-                new Person("波多野结衣", 30, "女", "日本"),
-                new Person("波多野结衣", 30, "女", "日本2")
+                new Person("Tony", 46, "男","美国"),
+                new Person("田七", 26, "男","中国"),
+                new Person("波多野结衣", 30, "女","日本"),
+                new Person("波多野结衣", 30, "女","日本2")
         );
 
 
         List<Person> collect = persons.stream()
-                // .parallel()
+                //.parallel()
                 .collect(Collector.of(
                         () -> {
                             String name = Thread.currentThread().getName();
-                            System.out.println("供应器执行[ " + name + "]>>>>>>>>>>>>>>>");
+                            System.out.println("供应器执行[ "  + name  +"]>>>>>>>>>>>>>>>\n");
                             return new ArrayList<>();
                         },
                         (list, person) -> {
                             String name = Thread.currentThread().getName();
-                            System.out.println("累加器执行[ " + name + "] >>>>>>>>>>>>>>> " + list);
+                            System.out.println("累加器执行[ " +  name +"] >>>>>>>>>>>>>>> " + list);
                             list.add(person);
                         },
                         (left, right) -> {
                             String name = Thread.currentThread().getName();
-                            System.out.println("组合器执行[" + name + "] >>>>>>>>>>>>>>>> " + left);
+                            System.out.println("\n组合器执行[" + name  +"] >>>>>>>>>>>>>>>> " + left);
                             left.addAll(right);
                             return left;
                         },
@@ -906,6 +906,18 @@ public class TerminalOperationDemo {
 
     }
 } 
+```
+输出结果：
+```text
+供应器执行[ main]>>>>>>>>>>>>>>>
+
+累加器执行[ main] >>>>>>>>>>>>>>> []
+累加器执行[ main] >>>>>>>>>>>>>>> [Person(name=张三, age=16, sex=男, country=中国)]
+累加器执行[ main] >>>>>>>>>>>>>>> [Person(name=张三, age=16, sex=男, country=中国), Person(name=AoLi, age=35, sex=女, country=美国)]
+累加器执行[ main] >>>>>>>>>>>>>>> [Person(name=张三, age=16, sex=男, country=中国), Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国)]
+累加器执行[ main] >>>>>>>>>>>>>>> [Person(name=张三, age=16, sex=男, country=中国), Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国), Person(name=田七, age=26, sex=男, country=中国)]
+累加器执行[ main] >>>>>>>>>>>>>>> [Person(name=张三, age=16, sex=男, country=中国), Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国), Person(name=田七, age=26, sex=男, country=中国), Person(name=波多野结衣, age=30, sex=女, country=日本)]
+>>>>>>>> collect = [Person(name=张三, age=16, sex=男, country=中国), Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国), Person(name=田七, age=26, sex=男, country=中国), Person(name=波多野结衣, age=30, sex=女, country=日本), Person(name=波多野结衣, age=30, sex=女, country=日本2)]
 ```
 > 可以看到，当是串行流时，组合器是不会执行的，当是并行流时，组合器才会执行。
 
