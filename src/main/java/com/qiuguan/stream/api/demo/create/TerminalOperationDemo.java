@@ -30,13 +30,13 @@ public class TerminalOperationDemo {
         );
 
         Map<String, String> map = new HashMap<>();
-        map.computeIfAbsent()
-       persons.stream().collect(Collector.of(
-               HashMap::new,
-               (map, person) -> {
-                   map.computeIfAbsent(person.getCountry(), () -> new ArrayList<>().add(person));
-               }
-       ))
+//        map.computeIfAbsent()
+//       persons.stream().collect(Collector.of(
+//               HashMap::new,
+//               (map, person) -> {
+//                   map.computeIfAbsent(person.getCountry(), () -> new ArrayList<>().add(person));
+//               }
+//       ))
     }
 
 
