@@ -676,24 +676,25 @@ public interface BiFunction<T, U, R> {
 
 ```java
 public class TerminalOperationDemo {
-
+    
     public static void main(String[] args) {
-        testCollect();
-    }
-
-    public static void testCollect() {
         List<Person> persons = List.of(
                 new Person("张三", 16, "男", "中国"),
                 new Person("AoLi", 35, "女", "美国"),
-                new Person("Tony", 46, "男", "美国"),
-                new Person("田七", 26, "男", "中国"),
-                new Person("波多野结衣", 30, "女", "日本"),
-                new Person("波多野结衣", 30, "女", "日本2")
+                new Person("Tony", 46, "男","美国"),
+                new Person("田七", 26, "男","中国"),
+                new Person("波多野结衣", 30, "女","日本"),
+                new Person("波多野结衣", 30, "女","日本2")
         );
 
         //转成Map, 姓名作为key, person作为value
-        //Map<String, Person> personMap = persons.stream().collect(Collectors.toMap(Person::getName, person -> person));
-        //personMap.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+        try {
+            //如果key存在重复的，将会报错
+            Map<String, Person> personMap = persons.stream().collect(Collectors.toMap(Person::getName, person -> person));
+            personMap.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         //如果key重复了会报错，所以用第三个参数指定key规则
         Map<String, String> personCountryMap = persons.stream()
@@ -708,6 +709,9 @@ public class TerminalOperationDemo {
         //分组
         Map<String, List<Person>> collect = persons.stream().collect(Collectors.groupingBy(Person::getCountry));
         collect.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+
+        Map<String, Long> collect2 = persons.stream().collect(Collectors.groupingBy(Person::getCountry, Collectors.counting()));
+        collect2.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
 
         System.out.println("-------------------------------------------------");
 
@@ -735,7 +739,15 @@ public class TerminalOperationDemo {
     }
 }
 ```
+简单看下
+`
+persons.stream().collect(Collectors.groupingBy(Person::getCountry));
+`
 
+collect()方法的定义：
+![img_10.png](img_10.png)
+<br>
+collect是一个泛型方法，Collector第三个泛型参数就是collect的返回值。
 
 ## 4.5 自定义collector来模拟收集功能
 为了更好的理解Collector的收集过程和以上这些方法的实现机制，从而掌握并实现更为复杂的收集策略。通过看Collector源码结构可以知道：
@@ -767,10 +779,7 @@ public interface Collector<T, A, R> {
     Function<A, R> finisher();
 
     /**
-     * Returns a {@code Set} of {@code Collector.Characteristics} indicating
-     * the characteristics of this Collector.  This set should be immutable.
-     *
-     * @return an immutable set of collector characteristics
+     * 收集策略
      */
     Set<Characteristics> characteristics();
 
@@ -778,7 +787,8 @@ public interface Collector<T, A, R> {
      *
      * @param supplier: 创建一个保存收集结果的容器
      * @param accumulator: 累加器，两个参数，第一个参数(R)是容器，第二个参数是元素(T)
-     * @param combiner 组合器：接收2个参数，返回值是R                  
+     * @param combiner 组合器：接收2个参数，返回值是R  
+     * @param characteristics 收集策略
      *                   
      */
     public static<T, R> Collector<T, R, R> of(Supplier<R> supplier,
@@ -797,20 +807,12 @@ public interface Collector<T, A, R> {
     }
 
     /**
-     * Returns a new {@code Collector} described by the given {@code supplier},
-     * {@code accumulator}, {@code combiner}, and {@code finisher} functions.
      *
-     * @param supplier The supplier function for the new collector
-     * @param accumulator The accumulator function for the new collector
-     * @param combiner The combiner function for the new collector
-     * @param finisher The finisher function for the new collector
-     * @param characteristics The collector characteristics for the new
-     *                        collector
-     * @param <T> The type of input elements for the new collector
-     * @param <A> The intermediate accumulation type of the new collector
-     * @param <R> The final result type of the new collector
-     * @throws NullPointerException if any argument is null
-     * @return the new {@code Collector}
+     * @param supplier: 创建一个保存收集结果的容器
+     * @param accumulator: 累加器，两个参数，第一个参数(R)是容器，第二个参数是元素(T)
+     * @param combiner 组合器：接收2个参数，返回值是R  
+     * @param finisher: 自定义的完成器：可以对累加器的结果进一步处理，如果使用 {@link Characteristics#IDENTITY_FINISH} 表示直接将累加器的结果作为最终结果返回。
+     * @param characteristics 收集策略
      */
     public static<T, A, R> Collector<T, A, R> of(Supplier<A> supplier,
                                                  BiConsumer<A, T> accumulator,
@@ -908,4 +910,139 @@ public class TerminalOperationDemo {
 > 可以看到，当是串行流时，组合器是不会执行的，当是并行流时，组合器才会执行。
 
 
-2. 自定义事情
+2. 自定义收集器实现人员按照国家分组
+
+```java
+public class CustomCollectorDemo {
+
+    public static void main(String[] args) {
+        List<Person> persons = List.of(
+                new Person("张三", 16, "男", "中国"),
+                new Person("AoLi", 35, "女", "美国"),
+                new Person("Tony", 46, "男", "美国"),
+                new Person("田七", 26, "男", "中国"),
+                new Person("波多野结衣", 30, "女", "日本"),
+                new Person("波多野结衣", 30, "女", "日本2")
+        );
+        HashMap<String, List<Person>> collect = persons
+                .stream()
+                //.parallel()
+                .collect(Collector.of(
+                        HashMap::new,
+                        (map, person) -> {
+                            System.out.println("累加器执行 = " + map);
+                            map.computeIfAbsent(person.getCountry(), k -> new ArrayList<>()).add(person);
+                        },
+                        //目的是在并行流中合并多各自累加器处理后的独立。我这里将right累加器的数据添加到left中，然后返回leftMap数据个线程
+                        //如果是串行流该方法将不会执行
+                        (left, right) -> {
+                            String name = Thread.currentThread().getName();
+                            System.out.println("合并器[" + name +"]执行>>>>>>>>>>>> left " + left + System.lineSeparator() + " right: " + right);
+                            //注意：我这里的合并是指： 把线程A的Map的key=中国的List元素 和 把线程B的Map的key=中国的List元素进行合并，也就是将key相同的list合并到一个List中
+                            //merge方法的第三个参数是指对value进一步进行操作
+                            right.forEach((k, v) -> left.merge(k, v, (list1, list2) -> {
+                                list1.addAll(list2);
+                                return list1;
+                            }));
+
+                            return left;
+                        },
+                        Collector.Characteristics.IDENTITY_FINISH
+                        //不将累加器的结果作为最终结果，而是自定义，比如我这里，直接返回分组个数
+                        //map -> map.size()
+                ));
+
+        System.out.println("collect = " + collect);
+    }
+}
+```
+
+输出结果：
+```text
+累加器执行 = {}  //先初始化一个空的容器
+累加器执行 = {中国=[Person(name=张三, age=16, sex=男, country=中国)]}  //开始添加元素
+累加器执行 = {美国=[Person(name=AoLi, age=35, sex=女, country=美国)], 中国=[Person(name=张三, age=16, sex=男, country=中国)]}
+累加器执行 = {美国=[Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国)], 中国=[Person(name=张三, age=16, sex=男, country=中国)]}
+累加器执行 = {美国=[Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国)], 中国=[Person(name=张三, age=16, sex=男, country=中国), Person(name=田七, age=26, sex=男, country=中国)]}
+累加器执行 = {美国=[Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国)], 中国=[Person(name=张三, age=16, sex=男, country=中国), Person(name=田七, age=26, sex=男, country=中国)], 日本=[Person(name=波多野结衣, age=30, sex=女, country=日本)]}
+collect = {美国=[Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国)], 日本2=[Person(name=波多野结衣, age=30, sex=女, country=日本2)], 中国=[Person(name=张三, age=16, sex=男, country=中国), Person(name=田七, age=26, sex=男, country=中国)], 日本=[Person(name=波多野结衣, age=30, sex=女, country=日本)]}
+```
+<br>
+
+我们在改成并行流看看:
+
+```java
+public class CustomCollectorDemo {
+    
+    public static void main(String[] args) {
+        List<Person> persons = List.of(
+                new Person("张三", 16, "男", "中国"),
+                new Person("AoLi", 35, "女", "美国"),
+                new Person("Tony", 46, "男","美国"),
+                new Person("田七", 26, "男","中国"),
+                new Person("波多野结衣", 30, "女","日本"),
+                new Person("波多野结衣", 30, "女","日本2")
+        );
+        HashMap<String, List<Person>> collect = persons
+                .stream()
+                .parallel()
+                .collect(Collector.of(
+                        HashMap::new,
+                        (map, person) -> {
+                            String name = Thread.currentThread().getName();
+                            System.out.println("累加器[ " + name +"] 执行 = " + map);
+                            map.computeIfAbsent(person.getCountry(), k -> new ArrayList<>()).add(person);
+                        },
+                        //目的是在并行流中合并多各自累加器处理后的独立。我这里将right累加器的数据添加到left中，然后返回leftMap数据个线程
+                        //如果是串行流该方法将不会执行
+                        (left, right) -> {
+                            String name = Thread.currentThread().getName();
+                            System.out.println("\n合并器[ " + name +" ]执行>>>>>>>>>>>>: \n left: " + left + System.lineSeparator() + " right: " + right );
+                            //注意：我这里的合并是指： 把线程A的Map的key=中国的List元素 和 把线程B的Map的key=中国的List元素进行合并，也就是将key相同的list合并到一个List中
+                            //merge方法的第三个参数是指对value进一步进行操作
+                            right.forEach((k, v) -> left.merge(k, v, (list1, list2) -> {
+                                list1.addAll(list2);
+                                return list1;
+                            }));
+
+                            return left;
+                        },
+                        Collector.Characteristics.IDENTITY_FINISH
+                        //不将累加器的结果作为最终结果，而是自定义，比如我这里，直接返回分组个数
+                        //map -> map.size()
+                ));
+
+        System.out.println("collect = " + collect);
+    }
+}
+```
+输出结果：
+```text
+累加器[ ForkJoinPool.commonPool-worker-3] 执行 = {}
+累加器[ ForkJoinPool.commonPool-worker-2] 执行 = {}
+累加器[ ForkJoinPool.commonPool-worker-4] 执行 = {}
+累加器[ ForkJoinPool.commonPool-worker-5] 执行 = {}
+累加器[ ForkJoinPool.commonPool-worker-1] 执行 = {}
+累加器[ main] 执行 = {}
+
+合并器[ ForkJoinPool.commonPool-worker-5 ]执行>>>>>>>>>>>>: 
+ left: {日本=[Person(name=波多野结衣, age=30, sex=女, country=日本)]}
+ right: {日本2=[Person(name=波多野结衣, age=30, sex=女, country=日本2)]}
+
+合并器[ ForkJoinPool.commonPool-worker-3 ]执行>>>>>>>>>>>>: 
+ left: {美国=[Person(name=AoLi, age=35, sex=女, country=美国)]}
+ right: {美国=[Person(name=Tony, age=46, sex=男, country=美国)]}
+
+合并器[ ForkJoinPool.commonPool-worker-3 ]执行>>>>>>>>>>>>: 
+ left: {中国=[Person(name=张三, age=16, sex=男, country=中国)]}
+ right: {美国=[Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国)]}
+
+合并器[ ForkJoinPool.commonPool-worker-5 ]执行>>>>>>>>>>>>: 
+ left: {中国=[Person(name=田七, age=26, sex=男, country=中国)]}
+ right: {日本2=[Person(name=波多野结衣, age=30, sex=女, country=日本2)], 日本=[Person(name=波多野结衣, age=30, sex=女, country=日本)]}
+
+合并器[ ForkJoinPool.commonPool-worker-5 ]执行>>>>>>>>>>>>: 
+ left: {美国=[Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国)], 中国=[Person(name=张三, age=16, sex=男, country=中国)]}
+ right: {日本2=[Person(name=波多野结衣, age=30, sex=女, country=日本2)], 中国=[Person(name=田七, age=26, sex=男, country=中国)], 日本=[Person(name=波多野结衣, age=30, sex=女, country=日本)]}
+collect = {美国=[Person(name=AoLi, age=35, sex=女, country=美国), Person(name=Tony, age=46, sex=男, country=美国)], 日本2=[Person(name=波多野结衣, age=30, sex=女, country=日本2)], 中国=[Person(name=张三, age=16, sex=男, country=中国), Person(name=田七, age=26, sex=男, country=中国)], 日本=[Person(name=波多野结衣, age=30, sex=女, country=日本)]}
+```

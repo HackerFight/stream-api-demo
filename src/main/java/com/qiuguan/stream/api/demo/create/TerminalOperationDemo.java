@@ -6,7 +6,6 @@ import java.util.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 /**
  * @author fu yuan hui
@@ -15,66 +14,7 @@ import java.util.stream.Stream;
 public class TerminalOperationDemo {
 
     public static void main(String[] args) {
-        testCustomCollect();
-    }
-
-
-    public static void testCustomCollect2() {
-        List<Person> persons = List.of(
-                new Person("张三", 16, "男", "中国"),
-                new Person("AoLi", 35, "女", "美国"),
-                new Person("Tony", 46, "男", "美国"),
-                new Person("田七", 26, "男", "中国"),
-                new Person("波多野结衣", 30, "女", "日本"),
-                new Person("波多野结衣", 30, "女", "日本2")
-        );
-
-        Map<String, String> map = new HashMap<>();
-//        map.computeIfAbsent()
-//       persons.stream().collect(Collector.of(
-//               HashMap::new,
-//               (map, person) -> {
-//                   map.computeIfAbsent(person.getCountry(), () -> new ArrayList<>().add(person));
-//               }
-//       ))
-    }
-
-
-    public static void testCustomCollect() {
-        List<Person> persons = List.of(
-                new Person("张三", 16, "男", "中国"),
-                new Person("AoLi", 35, "女", "美国"),
-                new Person("Tony", 46, "男","美国"),
-                new Person("田七", 26, "男","中国"),
-                new Person("波多野结衣", 30, "女","日本"),
-                new Person("波多野结衣", 30, "女","日本2")
-        );
-
-
-        List<Person> collect = persons.stream()
-               // .parallel()
-                .collect(Collector.of(
-                () -> {
-                    String name = Thread.currentThread().getName();
-                    System.out.println("供应器执行[ "  + name  +"]>>>>>>>>>>>>>>>");
-                    return new ArrayList<>();
-                },
-                (list, person) -> {
-                    String name = Thread.currentThread().getName();
-                    System.out.println("累加器执行[ " +  name +"] >>>>>>>>>>>>>>> " + list);
-                    list.add(person);
-                },
-                (left, right) -> {
-                    String name = Thread.currentThread().getName();
-                    System.out.println("组合器执行[" + name  +"] >>>>>>>>>>>>>>>> " + left);
-                    left.addAll(right);
-                    return left;
-                },
-                Collector.Characteristics.IDENTITY_FINISH
-        ));
-
-        System.out.println(">>>>>>>> collect = " + collect);
-
+        testCollect();
     }
 
     public static void testCollect() {
@@ -88,8 +28,13 @@ public class TerminalOperationDemo {
         );
 
         //转成Map, 姓名作为key, person作为value
-        //Map<String, Person> personMap = persons.stream().collect(Collectors.toMap(Person::getName, person -> person));
-        //personMap.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+        try {
+            //如果key存在重复的，将会报错
+            Map<String, Person> personMap = persons.stream().collect(Collectors.toMap(Person::getName, person -> person));
+            personMap.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         //如果key重复了会报错，所以用第三个参数指定key规则
         Map<String, String> personCountryMap = persons.stream()
@@ -104,6 +49,9 @@ public class TerminalOperationDemo {
         //分组
         Map<String, List<Person>> collect = persons.stream().collect(Collectors.groupingBy(Person::getCountry));
         collect.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
+
+        Map<String, Long> collect2 = persons.stream().collect(Collectors.groupingBy(Person::getCountry, Collectors.counting()));
+        collect2.forEach((k, v) -> System.out.println("key = " + k + " value = " + v));
 
         System.out.println("-------------------------------------------------");
 
